@@ -1,5 +1,7 @@
 import mongoose, { Schema } from "mongoose";
-import { isEmail } from "validator";
+import validator from "validator";
+const { isEmail } = validator;
+
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
@@ -95,3 +97,6 @@ userSchema.methods.generateRefreshToken = function () {
 
 const User = mongoose.model("User", userSchema);
 export default User;
+
+
+
