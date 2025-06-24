@@ -87,9 +87,7 @@ const signUp = asyncHandler(async (req, res, next) => {
     .json(new ApiResponse(201, userData, "User created successfully"));
 });
 
-
-
-//  login controllers 
+//  login controllers
 const login = asyncHandler(async (req, res, next) => {
   const { username, email, password } = req.body;
 
@@ -112,7 +110,7 @@ const login = asyncHandler(async (req, res, next) => {
   setTokenCookies(res, accessToken, refreshToken);
 
   const { name, username: uname, email: userEmail } = user;
-  
+
   return res.json(
     new ApiResponse(
       200,
@@ -122,8 +120,32 @@ const login = asyncHandler(async (req, res, next) => {
   );
 });
 
-const logout = asyncHandler(async (req, res, next) =>{
 
+// logout controller
+const logout = asyncHandler(async (req, res, next) => {
+  const userId = req.user?._id;
+
+  if (!userId) {
+    return next(new ApiError(401, "Unauthorized", true));
+  }
+
+  const user = await User.findByIdAndUpdate(userId, { $unset: { refreshToken: 1 } });
+  if (!user) {
+    return next(new ApiError(404, "User not found", true));
+  }
+
+  const cookieOptions = {
+    httpOnly: true,
+    secure: true,
+    sameSite: "strict",
+  };
+
+  res
+    .clearCookie("accessToken", cookieOptions)
+    .clearCookie("refreshToken", cookieOptions);
+
+  return res.json(new ApiResponse(200, null, "User logged out successfully"));
 });
 
-export { signUp, login,logout };
+
+export { signUp, login, logout };
