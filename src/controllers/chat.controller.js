@@ -2,11 +2,8 @@ import asyncHandler from "../utils/asyncHandler.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import Chat from "../models/chat.model.js";
-import User from "../models/user.model.js";
-import Message from "../models/message.model.js";
 import { emitEvent } from "../utils/feature.js";
 import { ALERT, REFETCHS_CHAT, } from "../constant.js";
-import { getOtherMember } from "../libs/helper.js";
 
 
 // 📌 Create chat (1-to-1 or group)
@@ -114,18 +111,28 @@ const getGroupChat = asyncHandler(async (req, res) => {
 // ➕ Add members to a group
 const addMembers = asyncHandler(async (req, res, next) => {
   const { chatId, members } = req.body;
-  const chat = await Chat.findById(chatId);
 
+  // ✅ Validate input
+  if (!chatId || !Array.isArray(members) || members.length === 0) {
+    return next(new ApiError(400, "chatId and members (array) are required"));
+  }
+
+  const chat = await Chat.findById(chatId);
   if (!chat) return next(new ApiError(404, "Chat not found"));
   if (!chat.groupChat) return next(new ApiError(400, "Not a group chat"));
-  if (chat.creator.toString() !== req.user._id.toString()) return next(new ApiError(403, "Unauthorized"));
+  if (chat.creator.toString() !== req.user._id.toString()) {
+    return next(new ApiError(403, "Only group creator can add members"));
+  }
 
+  // ✅ Avoid duplicates
+  const existingIds = chat.members.map((m) => m.toString());
   const uniqueNewMembers = members.filter(
-    (id) => !chat.members.map((m) => m.toString()).includes(id)
+    (id) => !existingIds.includes(id.toString())
   );
 
-  if (chat.members.length + uniqueNewMembers.length > 100)
-    return next(new ApiError(400, "Group limit exceeded"));
+  if (chat.members.length + uniqueNewMembers.length > 100) {
+    return next(new ApiError(400, "Group limit exceeded (max 100)"));
+  }
 
   chat.members.push(...uniqueNewMembers);
   await chat.save();
@@ -133,8 +140,9 @@ const addMembers = asyncHandler(async (req, res, next) => {
   emitEvent(req, ALERT, chat.members, "New members added");
   emitEvent(req, REFETCHS_CHAT, "addMembers", chat.members);
 
-  return res.status(200).json(new ApiResponse(200, null, "Members added"));
+  return res.status(200).json(new ApiResponse(200, chat.members, "Members added"));
 });
+
 
 // ➖ Remove member
 const removeMember = asyncHandler(async (req, res, next) => {
