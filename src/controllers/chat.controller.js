@@ -5,13 +5,16 @@ import Chat from "../models/chat.model.js";
 import User from "../models/user.model.js";
 import Message from "../models/message.model.js";
 import { emitEvent } from "../utils/feature.js";
-import { ALERT, REFETCHS_CHAT, NEW_MESSAGE, NEW_MESSAGE_ALERT } from "../constant.js";
+import { ALERT, REFETCHS_CHAT, } from "../constant.js";
 import { getOtherMember } from "../libs/helper.js";
 
 
 // 📌 Create chat (1-to-1 or group)
 const createChat = asyncHandler(async (req, res, next) => {
+  console.log(req.body);
+  
   const { name, members } = req.body;
+
   const currentUserId = req.user._id.toString();
 
   if (!Array.isArray(members) || members.length === 0) {
@@ -59,25 +62,40 @@ const createChat = asyncHandler(async (req, res, next) => {
   return res.status(201).json(new ApiResponse(201, chat, "Group chat created"));
 });
 
-// 🧾 Get all user chats
 const getMyChats = asyncHandler(async (req, res) => {
-  const userId = req.user._id;
+  const userId = req.user._id.toString();
 
   const chats = await Chat.find({ members: userId }).populate("members", "name avatar");
 
-  const transformed = chats.map(({ _id, name, groupChat, members }) => {
-    const other = getOtherMember(userId, members);
-    return {
+  const transformedChats = chats.map(({ _id, name, members, groupChat }) => {
+    const otherMembers = members.filter(m => m._id.toString() !== userId);
+    const currentUser = members.find(m => m._id.toString() === userId);
+    const other = otherMembers[0];
+
+    const defaultAvatar = "https://ui-avatars.com/api/?name=User";
+
+    const response = {
       _id,
       groupChat,
-      avatar: groupChat ? members.slice(0, 3).map((m) => m?.avatar?.url || "") : [other?.avatar?.url || ""],
-      name: groupChat ? name : other?.name || "Unknown",
-      members: members.filter((m) => m._id.toString() !== userId.toString()).map((m) => m._id),
+      name: groupChat
+        ? name
+        : other?.name || "Unknown",
+      avatar: groupChat
+        ? members.slice(0, 3).map((m) => m.avatar?.url || defaultAvatar)
+        : [other?.avatar?.url || defaultAvatar],
+      members: groupChat
+        ? members.map((m) => m._id)
+        : [currentUser?._id, other?._id].filter(Boolean), // ensures both IDs if available
     };
+
+    return response;
   });
 
-  return res.status(200).json(new ApiResponse(200, transformed, "Chats retrieved"));
+  return res.status(200).json(
+    new ApiResponse(200, transformedChats, "Chats retrieved")
+  );
 });
+
 
 // 👥 Get group chats (where user is creator)
 const getGroupChat = asyncHandler(async (req, res) => {
@@ -159,6 +177,7 @@ const leaveGroup = asyncHandler(async (req, res, next) => {
 
   return res.status(200).json(new ApiResponse(200, null, "Left group"));
 });
+/*
 
 // 📎 Send attachments
 const sendAttachments = asyncHandler(async (req, res, next) => {
@@ -293,6 +312,7 @@ const getMessages = asyncHandler(async (req, res, next) => {
   }, "Messages retrieved"));
 });
 
+*/
 // 🔁 Export
 export {
   createChat,
@@ -301,9 +321,9 @@ export {
   addMembers,
   removeMember,
   leaveGroup,
-  sendAttachments,
-  getChatDetails,
-  renameGroup,
-  deleteChat,
-  getMessages,
+  // sendAttachments,
+  // getChatDetails,
+  // renameGroup,
+  // deleteChat,
+  // getMessages,
 };
