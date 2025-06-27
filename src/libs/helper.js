@@ -1,2 +1,2 @@
-export const getOtherMember = (members, userId) =>
-  members.find((member) => member._id.toString() !== userId.toString());
+const getOtherMember = (userId, members) =>
+  members.find((m) => m._id.toString() !== userId.toString());
