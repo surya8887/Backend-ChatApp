@@ -1,5 +1,5 @@
         # Use a Node.js base image
-        FROM node:18
+        FROM node:20
 
         # Set the working directory inside the container
         WORKDIR /app
@@ -11,7 +11,7 @@
         RUN npm install
 
         # Copy the rest of your application code
-        COPY . .app/
+        COPY . .
 
         # Expose the port your app listens on
         EXPOSE 3000
